@@ -1,33 +1,20 @@
 function analyzeHP(survei, design) {
-  const result = [];
+  const hasil = [];
 
   survei.features.forEach(hp => {
-    const id = hp.properties.name;
-    const match = design.features.find(d =>
-      turf.booleanEqual(hp.geometry, d.geometry)
-    );
+    let match = false;
 
-    if (!match) {
-      const alasan = [];
+    design.features.forEach(d => {
+      const dist = turf.distance(hp, d, { units: "meters" });
+      if (dist < 5) match = true; // toleransi 5 meter
+    });
 
-      if (hp.properties.distance > 250) alasan.push("JARAK > 250M");
-      if (hp.properties.splitter === "FULL") alasan.push("SPLITTER FULL");
-      if (hp.properties.cross_road > 8) alasan.push("NYEBRANG JALAN");
-      if (hp.properties.cross_river === true) alasan.push("CROSS SUNGAI");
-
-      result.push({
-        id,
-        status: "TAKEOUT",
-        alasan: alasan.join(", ")
-      });
-    } else {
-      result.push({
-        id,
-        status: "MATCH",
-        alasan: "-"
-      });
-    }
+    hasil.push({
+      id: hp.properties.name,
+      status: match ? "MATCH" : "TAKEOUT",
+      alasan: match ? "-" : "TIDAK ADA DI DESIGN"
+    });
   });
 
-  return result;
+  return hasil;
 }
