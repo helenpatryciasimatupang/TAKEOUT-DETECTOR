@@ -1,51 +1,82 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>HP Takeout Analyzer</title>
+<meta charset="UTF-8">
+<title>KMZ HP Match vs Takeout</title>
+
+<!-- JSZIP -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+<!-- TURF -->
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  padding: 20px;
+}
+h2 {
+  margin-bottom: 10px;
+}
+input, button {
+  margin: 6px 0;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+th, td {
+  border: 1px solid #ccc;
+  padding: 6px;
+  font-size: 13px;
+}
+th {
+  background: #f0f0f0;
+}
+.MATCH {
+  background: #c8f7c5;
+}
+.TAKEOUT {
+  background: #f7c5c5;
+}
+</style>
 </head>
+
 <body>
 
-<h2>HP Takeout Analyzer</h2>
+<h2>HP MATCH vs TAKEOUT (KMZ)</h2>
 
-<label>KMZ SURVEI</label><br>
+<label>KMZ SURVEI (HP Aktual):</label><br>
 <input type="file" id="kmzSurvei" accept=".kmz"><br><br>
 
-<label>KMZ DESIGN</label><br>
+<label>KMZ DESIGN (Rencana):</label><br>
 <input type="file" id="kmzDesign" accept=".kmz"><br><br>
 
 <button id="btnProses">PROSES</button>
 
-<h3>Hasil</h3>
+<p id="info"></p>
 
-<table border="1" cellpadding="5">
-  <thead>
-    <tr>
-      <th>HP ID</th>
-      <th>Status</th>
-      <th>Alasan Takeout</th>
-    </tr>
-  </thead>
-  <tbody id="resultBody"></tbody>
+<table>
+<thead>
+<tr>
+  <th>No</th>
+  <th>ID HP</th>
+  <th>Status</th>
+  <th>Keterangan</th>
+</tr>
+</thead>
+<tbody id="resultBody"></tbody>
 </table>
 
-<!-- CDN LIB (AMAN UNTUK GITHUB PAGES) -->
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
-
 <script>
-console.log("SCRIPT LOADED");
+console.log("SCRIPT READY");
 
-// =====================
-// EVENT TOMBOL
-// =====================
 document.getElementById("btnProses").addEventListener("click", processKMZ);
 
-// =====================
-// MAIN FUNCTION
-// =====================
 async function processKMZ() {
-  alert("PROSES DIKLIK");
+  document.getElementById("info").innerText = "Memproses KMZ...";
+  console.log("PROSES DIKLIK");
 
   const surveiFile = document.getElementById("kmzSurvei").files[0];
   const designFile = document.getElementById("kmzDesign").files[0];
@@ -58,83 +89,106 @@ async function processKMZ() {
   const survei = await parseKMZ(surveiFile);
   const design = await parseKMZ(designFile);
 
+  console.log("SURVEI POINT:", survei.length);
+  console.log("DESIGN POINT:", design.length);
+
   const hasil = analyzeHP(survei, design);
+
   renderTable(hasil);
+
+  document.getElementById("info").innerText =
+    `Selesai — Total HP: ${hasil.length}`;
 }
 
-// =====================
-// PARSE KMZ
-// =====================
+// ============================
+// PARSE KMZ → POINT ONLY
+// ============================
 async function parseKMZ(file) {
   const zip = await JSZip.loadAsync(file);
-  const kmlName = Object.keys(zip.files).find(n => n.endsWith(".kml"));
-  const kmlText = await zip.files[kmlName].async("text");
+  const kmlName = Object.keys(zip.files).find(f => f.endsWith(".kml"));
 
-  const parser = new DOMParser();
-  const xml = parser.parseFromString(kmlText, "text/xml");
+  if (!kmlName) {
+    alert("KML tidak ditemukan di KMZ");
+    return [];
+  }
+
+  const kmlText = await zip.files[kmlName].async("text");
+  const xml = new DOMParser().parseFromString(kmlText, "text/xml");
 
   const placemarks = [...xml.getElementsByTagName("Placemark")];
-  const features = [];
+  const data = [];
 
   placemarks.forEach(pm => {
-    const name = pm.getElementsByTagName("name")[0]?.textContent || "HP";
-    const coordNode = pm.getElementsByTagName("coordinates")[0];
-    if (!coordNode) return;
+    const point = pm.getElementsByTagName("Point")[0];
+    if (!point) return;
 
-    const [lon, lat] = coordNode.textContent.trim().split(",").map(Number);
+    const coord = point.getElementsByTagName("coordinates")[0];
+    if (!coord) return;
 
-    features.push({
+    const [lon, lat] = coord.textContent.trim().split(",").map(Number);
+    if (isNaN(lat) || isNaN(lon)) return;
+
+    const name =
+      pm.getElementsByTagName("name")[0]?.textContent || "HP";
+
+    data.push({
       id: name,
       lon,
       lat
     });
   });
 
-  console.log("Parsed:", features.length);
-  return features;
+  console.log("Parsed:", data.length);
+  return data;
 }
 
-// =====================
-// ANALYZE MATCH
-// =====================
+// ============================
+// ANALYZE MATCH / TAKEOUT
+// ============================
 function analyzeHP(survei, design) {
-  const hasil = [];
+  const MAX_DIST = 5; // meter
 
-  survei.forEach(hp => {
-    let match = false;
+  return survei.map((hp, i) => {
+    let matched = false;
 
-    design.forEach(d => {
-      const from = turf.point([hp.lon, hp.lat]);
-      const to = turf.point([d.lon, d.lat]);
-      const dist = turf.distance(from, to, { units: "meters" });
+    for (const d of design) {
+      const p1 = turf.point([hp.lon, hp.lat]);
+      const p2 = turf.point([d.lon, d.lat]);
+      const dist = turf.distance(p1, p2, { units: "meters" });
 
-      if (dist < 5) match = true;
-    });
+      if (dist <= MAX_DIST) {
+        matched = true;
+        break;
+      }
+    }
 
-    hasil.push({
+    return {
+      no: i + 1,
       id: hp.id,
-      status: match ? "MATCH" : "TAKEOUT",
-      alasan: match ? "-" : "TIDAK ADA DI DESIGN"
-    });
+      status: matched ? "MATCH" : "TAKEOUT",
+      ket: matched ? "-" : "Tidak ada di design"
+    };
   });
-
-  return hasil;
 }
 
-// =====================
+// ============================
 // RENDER TABLE
-// =====================
+// ============================
 function renderTable(data) {
   const tbody = document.getElementById("resultBody");
   tbody.innerHTML = "";
 
   data.forEach(d => {
     const tr = document.createElement("tr");
+    tr.className = d.status;
+
     tr.innerHTML = `
+      <td>${d.no}</td>
       <td>${d.id}</td>
       <td>${d.status}</td>
-      <td>${d.alasan}</td>
+      <td>${d.ket}</td>
     `;
+
     tbody.appendChild(tr);
   });
 }
