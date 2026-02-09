@@ -14,7 +14,7 @@
 <label>KMZ DESIGN</label><br>
 <input type="file" id="kmzDesign" accept=".kmz"><br><br>
 
-<button type="button" onclick="processKMZ()">PROSES</button>
+<button id="btnProses">PROSES</button>
 
 <h3>Hasil</h3>
 
@@ -29,14 +29,116 @@
   <tbody id="resultBody"></tbody>
 </table>
 
-<!-- LIB -->
-<script src="lib/jszip.min.js"></script>
-<script src="lib/turf.min.js"></script>
+<!-- CDN LIB (AMAN UNTUK GITHUB PAGES) -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
-<!-- APP -->
-<script src="js/kmzParser.js"></script>
-<script src="js/analyzer.js"></script>
-<script src="js/main.js"></script>
+<script>
+console.log("SCRIPT LOADED");
+
+// =====================
+// EVENT TOMBOL
+// =====================
+document.getElementById("btnProses").addEventListener("click", processKMZ);
+
+// =====================
+// MAIN FUNCTION
+// =====================
+async function processKMZ() {
+  alert("PROSES DIKLIK");
+
+  const surveiFile = document.getElementById("kmzSurvei").files[0];
+  const designFile = document.getElementById("kmzDesign").files[0];
+
+  if (!surveiFile || !designFile) {
+    alert("KMZ SURVEI & DESIGN WAJIB DIISI");
+    return;
+  }
+
+  const survei = await parseKMZ(surveiFile);
+  const design = await parseKMZ(designFile);
+
+  const hasil = analyzeHP(survei, design);
+  renderTable(hasil);
+}
+
+// =====================
+// PARSE KMZ
+// =====================
+async function parseKMZ(file) {
+  const zip = await JSZip.loadAsync(file);
+  const kmlName = Object.keys(zip.files).find(n => n.endsWith(".kml"));
+  const kmlText = await zip.files[kmlName].async("text");
+
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(kmlText, "text/xml");
+
+  const placemarks = [...xml.getElementsByTagName("Placemark")];
+  const features = [];
+
+  placemarks.forEach(pm => {
+    const name = pm.getElementsByTagName("name")[0]?.textContent || "HP";
+    const coordNode = pm.getElementsByTagName("coordinates")[0];
+    if (!coordNode) return;
+
+    const [lon, lat] = coordNode.textContent.trim().split(",").map(Number);
+
+    features.push({
+      id: name,
+      lon,
+      lat
+    });
+  });
+
+  console.log("Parsed:", features.length);
+  return features;
+}
+
+// =====================
+// ANALYZE MATCH
+// =====================
+function analyzeHP(survei, design) {
+  const hasil = [];
+
+  survei.forEach(hp => {
+    let match = false;
+
+    design.forEach(d => {
+      const from = turf.point([hp.lon, hp.lat]);
+      const to = turf.point([d.lon, d.lat]);
+      const dist = turf.distance(from, to, { units: "meters" });
+
+      if (dist < 5) match = true;
+    });
+
+    hasil.push({
+      id: hp.id,
+      status: match ? "MATCH" : "TAKEOUT",
+      alasan: match ? "-" : "TIDAK ADA DI DESIGN"
+    });
+  });
+
+  return hasil;
+}
+
+// =====================
+// RENDER TABLE
+// =====================
+function renderTable(data) {
+  const tbody = document.getElementById("resultBody");
+  tbody.innerHTML = "";
+
+  data.forEach(d => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${d.id}</td>
+      <td>${d.status}</td>
+      <td>${d.alasan}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+</script>
 
 </body>
 </html>
