@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>HP Takeout Analyzer</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<h2>HP Takeout Analyzer</h2>
+
+<label>KMZ SURVEI</label>
+<input type="file" id="kmzSurvei" accept=".kmz"><br><br>
+
+<label>KMZ DESIGN</label>
+<input type="file" id="kmzDesign" accept=".kmz"><br><br>
+
+<button onclick="processKMZ()">PROSES</button>
+
+<h3>Hasil</h3>
+<table id="resultTable" border="1">
+  <thead>
+    <tr>
+      <th>HP ID</th>
+      <th>Status</th>
+      <th>Alasan Takeout</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script src="lib/jszip.min.js"></script>
+<script src="lib/turf.min.js"></script>
+<script src="lib/tokml.js"></script>
+
+<script src="js/kmzParser.js"></script>
+<script src="js/analyzer.js"></script>
+<script src="js/exporter.js"></script>
+<script src="js/main.js"></script>
+
+</body>
+</html>
