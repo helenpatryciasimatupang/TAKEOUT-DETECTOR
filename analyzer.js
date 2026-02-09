@@ -5,8 +5,8 @@ function analyzeHP(survei, design) {
     let match = false;
 
     design.features.forEach(d => {
-      const dist = turf.distance(hp, d, { units: "meters" });
-      if (dist < 5) match = true; // toleransi 5 meter
+      const jarak = turf.distance(hp, d, { units: "meters" });
+      if (jarak < 5) match = true;
     });
 
     hasil.push({
