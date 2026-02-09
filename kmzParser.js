@@ -1,7 +1,7 @@
 async function parseKMZ(file) {
   const zip = await JSZip.loadAsync(file);
-  const kmlName = Object.keys(zip.files).find(n => n.endsWith(".kml"));
-  const kmlText = await zip.files[kmlName].async("text");
+  const kmlFile = Object.keys(zip.files).find(f => f.endsWith(".kml"));
+  const kmlText = await zip.files[kmlFile].async("text");
 
   const parser = new DOMParser();
   const xml = parser.parseFromString(kmlText, "text/xml");
@@ -10,12 +10,11 @@ async function parseKMZ(file) {
   const features = [];
 
   placemarks.forEach(pm => {
-    const name = pm.getElementsByTagName("name")[0]?.textContent || "UNKNOWN";
-    const coordText = pm.getElementsByTagName("coordinates")[0]?.textContent;
+    const name = pm.getElementsByTagName("name")[0]?.textContent || "HP";
+    const coordNode = pm.getElementsByTagName("coordinates")[0];
+    if (!coordNode) return;
 
-    if (!coordText) return;
-
-    const [lon, lat] = coordText.trim().split(",").map(Number);
+    const [lon, lat] = coordNode.textContent.trim().split(",").map(Number);
 
     features.push({
       type: "Feature",
@@ -27,6 +26,6 @@ async function parseKMZ(file) {
     });
   });
 
-  console.log("Parsed features:", features.length);
+  console.log("PARSED:", features.length);
   return { type: "FeatureCollection", features };
 }
