@@ -1,39 +1,39 @@
+console.log("MAIN JS LOADED");
+
 async function processKMZ() {
   try {
+    alert("TOMBOL KEKLIK");
+
     const surveiFile = document.getElementById("kmzSurvei").files[0];
     const designFile = document.getElementById("kmzDesign").files[0];
 
     if (!surveiFile || !designFile) {
-      alert("KMZ belum lengkap");
+      alert("KMZ SURVEI & KMZ DESIGN WAJIB DIISI");
       return;
     }
 
-    console.log("Parsing SURVEI...");
     const survei = await parseKMZ(surveiFile);
-
-    console.log("Parsing DESIGN...");
     const design = await parseKMZ(designFile);
 
-    console.log("Analyzing...");
     const hasil = analyzeHP(survei, design);
 
-    const tbody = document.querySelector("#resultTable tbody");
+    const tbody = document.getElementById("resultBody");
     tbody.innerHTML = "";
 
-    hasil.forEach(r => {
+    hasil.forEach(h => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${r.id}</td>
-        <td>${r.status}</td>
-        <td>${r.alasan}</td>
+        <td>${h.id}</td>
+        <td>${h.status}</td>
+        <td>${h.alasan}</td>
       `;
       tbody.appendChild(tr);
     });
 
-    console.log("DONE:", hasil.length);
+    console.log("SELESAI:", hasil.length);
 
-  } catch (e) {
-    console.error(e);
-    alert("ERROR: cek console");
+  } catch (err) {
+    console.error(err);
+    alert("ERROR, CEK CONSOLE");
   }
 }
