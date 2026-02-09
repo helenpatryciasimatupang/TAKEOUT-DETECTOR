@@ -3,22 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <title>HP Takeout Analyzer</title>
-  <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 
 <h2>HP Takeout Analyzer</h2>
 
-<label>KMZ SURVEI</label>
+<label>KMZ SURVEI</label><br>
 <input type="file" id="kmzSurvei" accept=".kmz"><br><br>
 
-<label>KMZ DESIGN</label>
+<label>KMZ DESIGN</label><br>
 <input type="file" id="kmzDesign" accept=".kmz"><br><br>
 
-<button onclick="processKMZ()">PROSES</button>
+<button type="button" onclick="processKMZ()">PROSES</button>
 
 <h3>Hasil</h3>
-<table id="resultTable" border="1">
+
+<table border="1" cellpadding="5">
   <thead>
     <tr>
       <th>HP ID</th>
@@ -26,16 +26,16 @@
       <th>Alasan Takeout</th>
     </tr>
   </thead>
-  <tbody></tbody>
+  <tbody id="resultBody"></tbody>
 </table>
 
+<!-- LIB -->
 <script src="lib/jszip.min.js"></script>
 <script src="lib/turf.min.js"></script>
-<script src="lib/tokml.js"></script>
 
+<!-- APP -->
 <script src="js/kmzParser.js"></script>
 <script src="js/analyzer.js"></script>
-<script src="js/exporter.js"></script>
 <script src="js/main.js"></script>
 
 </body>
