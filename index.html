@@ -2,66 +2,39 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>KMZ HP Match vs Takeout</title>
+<title>HP Match vs Takeout (HP ONLY)</title>
 
-<!-- JSZIP -->
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-
-<!-- TURF -->
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
 <style>
-body {
-  font-family: Arial, sans-serif;
-  padding: 20px;
-}
-h2 {
-  margin-bottom: 10px;
-}
-input, button {
-  margin: 6px 0;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-}
-th, td {
-  border: 1px solid #ccc;
-  padding: 6px;
-  font-size: 13px;
-}
-th {
-  background: #f0f0f0;
-}
-.MATCH {
-  background: #c8f7c5;
-}
-.TAKEOUT {
-  background: #f7c5c5;
-}
+body { font-family: Arial; padding: 20px; }
+table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+th, td { border: 1px solid #ccc; padding: 6px; font-size: 13px; }
+th { background: #eee; }
+.MATCH { background: #c8f7c5; }
+.TAKEOUT { background: #f7c5c5; }
 </style>
 </head>
 
 <body>
 
-<h2>HP MATCH vs TAKEOUT (KMZ)</h2>
+<h2>HP MATCH vs TAKEOUT (FILTER HP ONLY)</h2>
 
-<label>KMZ SURVEI (HP Aktual):</label><br>
+<label>KMZ SURVEI</label><br>
 <input type="file" id="kmzSurvei" accept=".kmz"><br><br>
 
-<label>KMZ DESIGN (Rencana):</label><br>
+<label>KMZ DESIGN</label><br>
 <input type="file" id="kmzDesign" accept=".kmz"><br><br>
 
 <button id="btnProses">PROSES</button>
-
 <p id="info"></p>
 
 <table>
 <thead>
 <tr>
   <th>No</th>
-  <th>ID HP</th>
+  <th>Nama HP</th>
   <th>Status</th>
   <th>Keterangan</th>
 </tr>
@@ -70,55 +43,57 @@ th {
 </table>
 
 <script>
-console.log("SCRIPT READY");
-
 document.getElementById("btnProses").addEventListener("click", processKMZ);
 
 async function processKMZ() {
-  document.getElementById("info").innerText = "Memproses KMZ...";
-  console.log("PROSES DIKLIK");
-
   const surveiFile = document.getElementById("kmzSurvei").files[0];
   const designFile = document.getElementById("kmzDesign").files[0];
 
   if (!surveiFile || !designFile) {
-    alert("KMZ SURVEI & DESIGN WAJIB DIISI");
+    alert("KMZ belum lengkap");
     return;
   }
 
-  const survei = await parseKMZ(surveiFile);
-  const design = await parseKMZ(designFile);
+  document.getElementById("info").innerText = "Memproses...";
 
-  console.log("SURVEI POINT:", survei.length);
-  console.log("DESIGN POINT:", design.length);
+  const survei = await parseKMZ_HP_ONLY(surveiFile);
+  const design = await parseKMZ_HP_ONLY(designFile);
+
+  console.log("HP SURVEI:", survei.length);
+  console.log("HP DESIGN:", design.length);
 
   const hasil = analyzeHP(survei, design);
-
   renderTable(hasil);
 
   document.getElementById("info").innerText =
-    `Selesai — Total HP: ${hasil.length}`;
+    `Selesai — HP Survei: ${survei.length}`;
 }
 
-// ============================
-// PARSE KMZ → POINT ONLY
-// ============================
-async function parseKMZ(file) {
+// ===============================
+// PARSE KMZ → HP ONLY
+// ===============================
+async function parseKMZ_HP_ONLY(file) {
   const zip = await JSZip.loadAsync(file);
   const kmlName = Object.keys(zip.files).find(f => f.endsWith(".kml"));
-
-  if (!kmlName) {
-    alert("KML tidak ditemukan di KMZ");
-    return [];
-  }
-
   const kmlText = await zip.files[kmlName].async("text");
   const xml = new DOMParser().parseFromString(kmlText, "text/xml");
 
   const placemarks = [...xml.getElementsByTagName("Placemark")];
-  const data = [];
+  const hpList = [];
 
   placemarks.forEach(pm => {
+    const name = pm.getElementsByTagName("name")[0]?.textContent || "";
+    const nameUpper = name.toUpperCase();
+
+    // 🔥 FILTER HP
+    const isHP =
+      nameUpper.includes("HP") ||
+      nameUpper.includes("HOME") ||
+      nameUpper.includes("HOME-BIZ") ||
+      nameUpper.startsWith("NN");
+
+    if (!isHP) return;
+
     const point = pm.getElementsByTagName("Point")[0];
     if (!point) return;
 
@@ -128,36 +103,33 @@ async function parseKMZ(file) {
     const [lon, lat] = coord.textContent.trim().split(",").map(Number);
     if (isNaN(lat) || isNaN(lon)) return;
 
-    const name =
-      pm.getElementsByTagName("name")[0]?.textContent || "HP";
-
-    data.push({
+    hpList.push({
       id: name,
       lon,
       lat
     });
   });
 
-  console.log("Parsed:", data.length);
-  return data;
+  return hpList;
 }
 
-// ============================
-// ANALYZE MATCH / TAKEOUT
-// ============================
+// ===============================
+// MATCH / TAKEOUT
+// ===============================
 function analyzeHP(survei, design) {
   const MAX_DIST = 5; // meter
 
   return survei.map((hp, i) => {
-    let matched = false;
+    let match = false;
 
     for (const d of design) {
-      const p1 = turf.point([hp.lon, hp.lat]);
-      const p2 = turf.point([d.lon, d.lat]);
-      const dist = turf.distance(p1, p2, { units: "meters" });
-
+      const dist = turf.distance(
+        turf.point([hp.lon, hp.lat]),
+        turf.point([d.lon, d.lat]),
+        { units: "meters" }
+      );
       if (dist <= MAX_DIST) {
-        matched = true;
+        match = true;
         break;
       }
     }
@@ -165,15 +137,15 @@ function analyzeHP(survei, design) {
     return {
       no: i + 1,
       id: hp.id,
-      status: matched ? "MATCH" : "TAKEOUT",
-      ket: matched ? "-" : "Tidak ada di design"
+      status: match ? "MATCH" : "TAKEOUT",
+      ket: match ? "-" : "Tidak ada di design"
     };
   });
 }
 
-// ============================
-// RENDER TABLE
-// ============================
+// ===============================
+// TABLE
+// ===============================
 function renderTable(data) {
   const tbody = document.getElementById("resultBody");
   tbody.innerHTML = "";
@@ -181,14 +153,12 @@ function renderTable(data) {
   data.forEach(d => {
     const tr = document.createElement("tr");
     tr.className = d.status;
-
     tr.innerHTML = `
       <td>${d.no}</td>
       <td>${d.id}</td>
       <td>${d.status}</td>
       <td>${d.ket}</td>
     `;
-
     tbody.appendChild(tr);
   });
 }
