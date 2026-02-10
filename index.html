@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>HP Match vs Takeout (HP ONLY)</title>
+<title>HP MATCH vs TAKEOUT (HP ONLY - SAFE)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
@@ -56,11 +56,11 @@ async function processKMZ() {
 
   document.getElementById("info").innerText = "Memproses...";
 
-  const survei = await parseKMZ_HP_ONLY(surveiFile);
-  const design = await parseKMZ_HP_ONLY(designFile);
+  const survei = await parseKMZ_HP_SAFE(surveiFile);
+  const design = await parseKMZ_HP_SAFE(designFile);
 
-  console.log("HP SURVEI:", survei.length);
-  console.log("HP DESIGN:", design.length);
+  console.log("HP SURVEI:", survei);
+  console.log("HP DESIGN:", design);
 
   const hasil = analyzeHP(survei, design);
   renderTable(hasil);
@@ -70,9 +70,9 @@ async function processKMZ() {
 }
 
 // ===============================
-// PARSE KMZ → HP ONLY
+// PARSE KMZ – SUPER SAFE
 // ===============================
-async function parseKMZ_HP_ONLY(file) {
+async function parseKMZ_HP_SAFE(file) {
   const zip = await JSZip.loadAsync(file);
   const kmlName = Object.keys(zip.files).find(f => f.endsWith(".kml"));
   const kmlText = await zip.files[kmlName].async("text");
@@ -82,15 +82,30 @@ async function parseKMZ_HP_ONLY(file) {
   const hpList = [];
 
   placemarks.forEach(pm => {
-    const name = pm.getElementsByTagName("name")[0]?.textContent || "";
-    const nameUpper = name.toUpperCase();
+    // 🔥 Ambil SEMUA kemungkinan nama
+    let textPool = "";
+
+    const nameEl = pm.getElementsByTagName("name")[0];
+    if (nameEl) textPool += " " + nameEl.textContent;
+
+    pm.querySelectorAll("SimpleData").forEach(el => {
+      textPool += " " + el.textContent;
+    });
+
+    pm.querySelectorAll("Data value").forEach(el => {
+      textPool += " " + el.textContent;
+    });
+
+    const text = textPool.toUpperCase();
 
     // 🔥 FILTER HP
     const isHP =
-      nameUpper.includes("HP") ||
-      nameUpper.includes("HOME") ||
-      nameUpper.includes("HOME-BIZ") ||
-      nameUpper.startsWith("NN");
+      text.includes("HP") ||
+      text.includes("HOME") ||
+      text.includes("HOME-BIZ") ||
+      text.includes("HOME BIZ") ||
+      text.startsWith("NN") ||
+      text.includes(" NN");
 
     if (!isHP) return;
 
@@ -104,7 +119,7 @@ async function parseKMZ_HP_ONLY(file) {
     if (isNaN(lat) || isNaN(lon)) return;
 
     hpList.push({
-      id: name,
+      id: textPool.trim() || "HP_TANPA_NAMA",
       lon,
       lat
     });
